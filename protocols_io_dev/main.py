@@ -16,13 +16,26 @@ def main():
 
     client = ProtocolsClient(token)
 
-    # profile = client.get_profile()
-    # print(profile)
+    # Start by calling something simple
+    profile = client.get_profile()
+    print(profile)
 
-    key = 'plasmid'
-    # key = 'restriction enzyme'
+    # Query for protocols
+    # key = 'plasmid'
+    key = 'restriction enzyme'
     protocols = client.list_protocols(ProtocolFilter.public, key)
     print(protocols)
+
+    # Get details on a specific one
+    # protocol_id = 90736
+    protocol_id = 137
+    # protocol_doi = 'dx.doi.org/10.17504/protocols.io.yxmvm3z5bl3p/v1'  # TODO: doesn't work in same way yet
+
+    steps = client.get_protocol_steps(protocol_id)
+    print(steps)
+
+    materials = client.get_protocol_materials(protocol_id)
+    print(materials)
 
     return
 

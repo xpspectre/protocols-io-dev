@@ -27,14 +27,14 @@ class ProtocolFilter(enum.StrEnum):
 
 
 class ProtocolsClient:
-    def __init__(self, token: str, base_url: str = 'https://www.protocols.io/api/v3'):
-        self.base_url = base_url
+    def __init__(self, token: str, base_url: str = 'https://www.protocols.io'):
+        self.base_url = base_url  # this is just the scheme+hostname[+port]. Endpoints have different /api/[v3|v4]
         self._auth = BearerAuth(token)
         self._session = requests.Session()
         self._session.auth = self._auth
 
     def get_profile(self) -> dict:
-        res = self._session.get(self.base_url + '/session/profile')
+        res = self._session.get(self.base_url + '/api/v3/session/profile')
         if not res.ok:
             raise ProtocolsClientError(f'Error getting profile: {res.status_code}, {res.text}')
         body = res.json()
@@ -42,9 +42,28 @@ class ProtocolsClient:
             raise ProtocolsClientError(f'Getting profile returned error code {body}')
         return body['user']
 
-    def list_protocols(self, filter: ProtocolFilter, key: str):
+    def list_protocols(self, filter: ProtocolFilter, key: str) -> list[dict]:
         params = {'filter': filter, 'key': key}
-        return self._get_with_pagination(self.base_url + '/protocols', params, 'protocols')
+        return self._get_with_pagination(self.base_url + '/api/v3/protocols', params, 'protocols')
+
+    def get_protocol_steps(self, protocol_id: int) -> list[dict]:
+        params = {'content_format': 'json'}
+        res = self._session.get(self.base_url + f'/api/v4/protocols/{protocol_id}/steps', params=params)
+        if not res.ok:
+            raise ProtocolsClientError(f'Error getting protocol {protocol_id} steps: {res.status_code}, {res.text}')
+        body = res.json()
+        if body.get('status_code') != 0:
+            raise ProtocolsClientError(f'Getting protocol {protocol_id} steps returned error code {body}')
+        return body['payload']
+
+    def get_protocol_materials(self, protocol_id: int) -> list[dict]:
+        res = self._session.get(self.base_url + f'/api/v3/protocols/{protocol_id}/materials')
+        if not res.ok:
+            raise ProtocolsClientError(f'Error getting protocol {protocol_id} materials: {res.status_code}, {res.text}')
+        body = res.json()
+        if body.get('status_code') != 0:
+            raise ProtocolsClientError(f'Getting protocol {protocol_id} materials returned error code {body}')
+        return body['materials']
 
     def _get_with_pagination(self, url: str, params: dict, data_type: str) -> list[dict]:
         # Get first page with minimal required to determine number of pages
