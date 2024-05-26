@@ -66,12 +66,7 @@ class ProtocolsClient:
         return body['materials']
 
     def _get_with_pagination(self, url: str, params: dict, data_type: str) -> list[dict]:
-        # Get first page with minimal required to determine number of pages
-        #   There appears to be bugs (or at least I can't figure out how they meant to call the API) with their
-        #   next_page url skipping pages and the "1st" page (called w/o pagination params) not being the logical
-        #   1st page of results. So do a 2 stage process where the 1st request just looks up pagination metadata
-        #   and subsequent requests get all pages in order, starting with 1.
-        # Note it also appears pages are 1-indexed while items are 0-indexed
+        # Get first page
         page_size = 20
         page_params = {**params, 'page_size': page_size}
         res = self._session.get(url, params=page_params)
@@ -81,17 +76,20 @@ class ProtocolsClient:
         # Some of the endpoints return status_code, some don't
         items = body['items']
 
+        # Get the rest of the pages
+        # Note it also appears pages are 0-indexed. Items are also 0-indexed. This differs from how API is documented
+        #   and how the next_page url works.
         pagination = body['pagination']
         total_pages = pagination['total_pages']
         total_results = pagination['total_results']
         log.info(f'Getting {data_type} has {total_pages} pages, {total_results} items')
-        for page_id in range(1, total_pages + 1):
-            log.info(f'Getting {data_type} p{page_id}/{total_pages}')
+        for page_id in range(1, total_pages):
+            log.info(f'Getting {data_type} p{page_id + 1}/{total_pages}')
             page_params = {**params, 'page_size': page_size, 'page_id': page_id}
             res = self._session.get(url, params=page_params)
             if not res.ok:
                 raise ProtocolsClientError(
-                    f'Error getting {data_type} p{page_id}/{total_pages}: {res.status_code}, {res.text}')
+                    f'Error getting {data_type} p{page_id + 1}/{total_pages}: {res.status_code}, {res.text}')
             body = res.json()
             items.extend(body['items'])
 
